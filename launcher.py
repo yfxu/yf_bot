@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
-bot = commands.Bot(command_prefix=";")
+bot = commands.Bot(command_prefix="<")
 
 # extensions for commands found in cogs folder
-extensions = ['cogs.osu', 'cogs.admin', 'cogs.gamble']
+extensions = ['cogs.osu', 'cogs.admin', 'cogs.fun', 'cogs.gamble']
 if __name__ == '__main__':
 	for extension in extensions:
 		bot.load_extension(extension)

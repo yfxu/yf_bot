@@ -1,2 +1,4 @@
+import shlex
+
 def parse(message):
-	return message.split()[1:]
+	return shlex.split(message)[1:]
