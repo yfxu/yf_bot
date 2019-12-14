@@ -1,6 +1,7 @@
 import discord
 import random
 from .utils import arg_parse
+from .utils import markdown
 from discord.ext import commands
 
 class Gamble(commands.Cog):
@@ -20,7 +21,9 @@ class Gamble(commands.Cog):
 			pass
 
 		roll_vals = [str(random.randrange(1, roll_max + 1, 1)) for i in range(0,roll_count)]
-		send_msg = ":game_die: <@{}> rolled {}".format(ctx.author.id, ', '.join(roll_vals))
+		roll_sum = markdown.bold(sum([int(i) for i in roll_vals]))
+		roll_list = ', '.join(roll_vals) + " " if len(roll_vals) > 1 else ""
+		send_msg = ":game_die: <@{}> rolled {} >  {}".format(ctx.author.id, roll_list, roll_sum)
 
 		await ctx.send(send_msg)
 
