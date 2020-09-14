@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # discord token
 load_dotenv()
-DISCORD TOKEN = os.getenv('DISCORD_TOKEN')
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
 bot = commands.Bot(command_prefix="<")
 
