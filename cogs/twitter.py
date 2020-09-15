@@ -1,10 +1,10 @@
 import os
 import time
-import random
 import discord
 import tweepy
 
 from .utils import arg_parse
+from .utils import text_seqs
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -23,11 +23,12 @@ class Twitter(commands.Cog):
 	def __init__(self, bot):
 		self.bot = bot
 
-	""" Tweet Generator """
+	""" tweet generator using unweighted Markov chain """
 	@commands.command( name='tweetgen', hidden=True )
 	async def _tweetgen( self, ctx ):
 		try:
 			twitter_id = arg_parse.parse( ctx.message.content )[0].strip( '@' )
+
 		except:
 			await ctx.send( "No Twitter id was provided" )
 			return
@@ -42,39 +43,32 @@ class Twitter(commands.Cog):
 		auth.set_access_token( ACCESS_KEY, ACCESS_SECRET )
 		api = tweepy.API( auth )
 
-		# get user's latest tweets
 		try:
+			chain = text_seqs.Markov_Chain()
+			generated_tweet = "https://"
+
+			# fetch user's latest tweets and feed them into a Markov chain
 			for tweet in tweepy.Cursor( api.user_timeline, id=twitter_id, tweet_mode='extended' ).items( TWEET_FETCH_LIMIT ):
 				if tweet.full_text.startswith( ( "RT @", "https://t.co/" ) ) == False:
-					# arrange individual words into Markov chains (collect data on user's typing style)
-					words = tweet.full_text.split()
-					for i in range( 0, len( words ) ):
-						if words[i] not in chain:
-								chain[words[i]] = set()
-						# end-of-tweet character
-						if i == len( words ) - 1:
-							chain[words[i]].add(0)
-						else:
-							chain[words[i]].add( words[i + 1] )
+					chain.feed( tweet.full_text )
 				tweet_count_total += 1
 
-			# generate the tweet given the Markov chain
-			last_word = random.choice( list( chain ) )
-			generated_tweet = last_word
-			while len( generated_tweet ) < TWEET_CHAR_LIMIT:
-				last_word = random.choice( tuple( chain[last_word] ) )
-				# special end-tweet character
-				if last_word == 0:
-					break
-				generated_tweet += " " + last_word
-
-			generated_tweet = generated_tweet[:280]
+			# generate the tweet given the Markov chain / exclude posts that begin with a link
+			while( generated_tweet.startswith( "https://" ) ):
+				generated_tweet = chain.generate( TWEET_CHAR_LIMIT )
 
 			# display API fetch statistics
 			elapsed_time = round( time.time() - start_time, 3 )
-			await ctx.send( "@{}: {}".format( twitter_id, generated_tweet ) )
-			await ctx.send( "analyzed {} tweets from @{} in {}s".format( tweet_count_total, twitter_id, elapsed_time ) )
-		except:
+
+			# generate embed
+			embed_info = api.get_user( twitter_id )._json
+			embed = discord.Embed( description=generated_tweet, color=0x1da1f2 )
+			embed.set_author( name="@{}".format( embed_info['screen_name'] ), url="https://twitter.com/{}".format( embed_info['screen_name'] ), icon_url=embed_info['profile_image_url'] )
+			embed.set_footer( text="analyzed {} tweets in {} seconds".format( tweet_count_total, elapsed_time ) )
+			await ctx.send( embed=embed )
+
+		except Exception as e:
+			print( e )
 			await ctx.send( "An error occurred while trying to analyze tweets from @{}".format( twitter_id ) )
 
 def setup( bot ):
