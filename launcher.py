@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 
 # discord token
 load_dotenv()
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+DISCORD_TOKEN = os.getenv( 'DISCORD_TOKEN' )
 
-bot = commands.Bot(command_prefix="<")
+bot = commands.Bot( command_prefix="<" )
 
 # extensions for commands found in cogs folder
 extensions = ['cogs.osu', 'cogs.admin', 'cogs.fun', 'cogs.gamble', 'cogs.twitter']
@@ -21,12 +21,12 @@ if __name__ == '__main__':
 @bot.event
 async def on_message(message):
 	if message.author != bot.user:
-		print(datetime.now().replace(microsecond=0), message.author, message.content)
+		#print( datetime.now().replace( microsecond=0 ), message.author, message.content )
 		await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
-	print(f'{bot.user} has connected to Discord!')
+	print( f'{bot.user} has connected to Discord!' )
 
 
-bot.run(DISCORD_TOKEN, bot=True, reconnect=True)
+bot.run( DISCORD_TOKEN, bot=True, reconnect=True )

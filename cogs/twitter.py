@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 # constants
 TWEET_CHAR_LIMIT = 280
-TWEET_FETCH_LIMIT = 250
+TWEET_FETCH_LIMIT = 500
 
 # import authentication credentials
 load_dotenv()
@@ -24,14 +24,24 @@ class Twitter(commands.Cog):
 		self.bot = bot
 
 	""" tweet generator using unweighted Markov chain """
-	@commands.command( name='tweetgen', hidden=True )
+	@commands.command( name='tweetgen', hidden=True, description="""Usage: tweetgen [Twitter ID] [N]
+		> [Twitter ID] - Any user's Twitter ID (eg. @realDonaldTrump) case-insensitive
+		> [N] - n-gram size (defaults to 1)""" )
 	async def _tweetgen( self, ctx ):
+		args = arg_parse.parse( ctx.message.content )
+		
 		try:
-			twitter_id = arg_parse.parse( ctx.message.content )[0].strip( '@' )
-
-		except:
+			twitter_id = args[0].strip( '@' )
+		except Exception as e:
+			print( "tweetgen load args[0]: {}".format( e ) )
 			await ctx.send( "No Twitter id was provided" )
 			return
+
+		try:
+			n = int( args[1] )
+		except Exception as e:
+			print( "tweetgen load args[1]: {}".format( e ) )
+			n = 1
 
 		# begin keeping track of statistics during API calls
 		start_time = time.time()
@@ -44,7 +54,7 @@ class Twitter(commands.Cog):
 		api = tweepy.API( auth )
 
 		try:
-			chain = text_seqs.Markov_Chain()
+			chain = text_seqs.Ngram( n )
 			generated_tweet = "https://"
 
 			# fetch user's latest tweets and feed them into a Markov chain
@@ -63,12 +73,12 @@ class Twitter(commands.Cog):
 			# generate embed
 			embed_info = api.get_user( twitter_id )._json
 			embed = discord.Embed( description=generated_tweet, color=0x1da1f2 )
-			embed.set_author( name="@{}".format( embed_info['screen_name'] ), url="https://twitter.com/{}".format( embed_info['screen_name'] ), icon_url=embed_info['profile_image_url'] )
-			embed.set_footer( text="analyzed {} tweets in {} seconds".format( tweet_count_total, elapsed_time ) )
+			embed.set_author( name="{}  @{}".format( embed_info['name'], embed_info['screen_name'] ), url="https://twitter.com/{}".format( embed_info['screen_name'] ), icon_url=embed_info['profile_image_url'] )
+			embed.set_footer( text="analyzed {} tweets in {} seconds  |  created using n-grams ( N = {} )".format( tweet_count_total, elapsed_time, n ) )
 			await ctx.send( embed=embed )
 
 		except Exception as e:
-			print( e )
+			print( "what the fuck: {}".format( e ) )
 			await ctx.send( "An error occurred while trying to analyze tweets from @{}".format( twitter_id ) )
 
 def setup( bot ):
