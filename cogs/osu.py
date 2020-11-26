@@ -80,7 +80,7 @@ class Osu( commands.Cog ):
 			'k': self.api_key, 
 			'u': osu_user_id, 
 			'm': osu_mode_id,
-			'type': 'string'} ).json()[0]
+			'type': 'string'} ).json()
 
 
 	# Fetch get_user_best from osu! api v1
@@ -126,7 +126,7 @@ class Osu( commands.Cog ):
 			osu_user_id = args[0]
 			osu_mode = self.get_mode_id( 0 )
 
-		r = self.get_user_info( osu_user_id, osu_mode['id'] )
+		r = self.get_user_info( osu_user_id, osu_mode['id'] )[0]
 
 		embed = discord.Embed(
 			title = ":flag_{}:  {}  (#{})  ({}#{})".format(r['country'].lower(), r['username'], r['pp_rank'], r['country'], r['pp_country_rank']), 
@@ -149,15 +149,36 @@ class Osu( commands.Cog ):
 		"""Get mapper stats"""
 		args = arg_parse.parse( ctx.message.content )
 		if len( args ) == 0:
-			await ctx.send("No user was provided")
+			await ctx.send("> no user was provided")
 			return
 
 		user_id = args[0]
+
+		print(args)
+		# default to 3 maps shown, else max cap at 8
+		try:
+			map_display_count = min(int(args[1]), 8)
+		except Exception as e:
+			map_display_count = 3
 
 		sets = []
 		maps = self.get_beatmap_info(u=user_id)
 		user = self.get_user_info(user_id)
 
+		# check for valid user with beatmaps
+		if len(user) == 0:
+			await ctx.send(f"> user `{user_id}` was not found!")
+			return
+		
+		user = user[0]
+		if len(maps) == 0:
+			user_name = user['username']
+			await ctx.send(f"> user `{user_name}` has no beatmaps!")
+			return
+
+
+		# create list of beatmapsets from unique beatmapset_ids
+		#     - add to existing playcount if map is a part of a set to get total mapset playcount 
 		for m in maps:
 			if m['beatmapset_id'] not in [ s['beatmapset_id'] for s in sets ]:
 				sets.append(m.copy())
@@ -166,34 +187,92 @@ class Osu( commands.Cog ):
 					if s['beatmapset_id'] == m['beatmapset_id']:
 						s['playcount'] = str(int(s['playcount']) + int(m['playcount']))
 
+		# for most ____ sets/diffs, only get top 3
 		stats = {
 			'total_sets'     : len(sets),
 			'total_diffs'    : len(maps),
 			'total_plays'    : sum([ int(x['playcount']) for x in maps ]),
 			'total_favs'     : sum([ int(x['favourite_count']) for x in sets ]),
 			'total_drain'    : sum([ int(x['hit_length']) for x in maps ]),
-			'most_play_diff' : max(maps, key=lambda x:int(x['playcount'])), 
-			'most_play_set'  : max(sets, key=lambda x:int(x['playcount'])), 
-			'most_fav_set'   : max(sets, key=lambda x:int(x['favourite_count'])) 
+			'top_play_diffs' : sorted(maps, key=lambda x:int(x['playcount']), reverse=True)[:map_display_count], 
+			'top_play_sets'  : sorted(sets, key=lambda x:int(x['playcount']), reverse=True)[:map_display_count], 
+			'top_fav_sets'   : sorted(sets, key=lambda x:int(x['favourite_count']), reverse=True)[:map_display_count] 
 		}
 
-		embed = discord.Embed(
-			title=f":flag_{user['country'].lower()}: {user['username']}'s mapper profile",
-			url=self.base_url + f"/u/{user['user_id']}",
-			description="**beatmap sets:** {:,}\n**beatmaps:** {:,}\n**playcount:** {:,}\n**favourites:** {:,}\n**drain time mapped:** {}".format(
-				stats['total_sets'],
-				stats['total_diffs'],
-				stats['total_plays'],
-				stats['total_favs'],
-				time_utils.format_str(stats['total_drain'])
-				)
-			)
-		embed.add_field(name="most favourited mapset", value=f"♥ {int(stats['most_fav_set']['favourite_count']):,} | {stats['most_fav_set']['artist']} - {stats['most_fav_set']['title']}", inline=False)
-		embed.add_field(name="most played mapset", value=f"► {int(stats['most_play_set']['playcount']):,} | {stats['most_play_set']['artist']} - {stats['most_play_set']['title']}", inline=False)
-		embed.add_field(name="most played difficulty", value=f"► {int(stats['most_play_diff']['playcount']):,} | {stats['most_play_diff']['artist']} - {stats['most_play_diff']['title']} [{stats['most_play_diff']['version']}]", inline=False)
-		embed.set_thumbnail(url="https://a.ppy.sh/{}".format(user['user_id']))
+		country_code      = user['country']
+		user_name         = user['username']
+		user_id           = user['user_id']
+		sets_count        = stats['total_sets']
+		maps_count        = stats['total_diffs']
+		plays_count       = stats['total_plays']
+		favs_count        = stats['total_favs']
+		drain_time_mapped = stats['total_drain']
+		
+		lowercase_country_code      = country_code.lower()
+		formatted_drain_time_mapped = time_utils.format_str(drain_time_mapped)
 
-		await ctx.send( embed=embed )
+		# generate discord embed
+		embed = discord.Embed(
+			title=f":flag_{lowercase_country_code}: {user_name}'s mapper profile",
+			url=self.base_url + f"/u/{user_id}",
+			description=f"**beatmap sets:** `{sets_count:,}`\n**beatmaps:** `{maps_count:,}`\n**playcount:** `{plays_count:,}`\n**favourites:** `{favs_count:,}`\n**drain time mapped:** `{formatted_drain_time_mapped}`"
+		)
+		embed.set_thumbnail(url=f"https://a.ppy.sh/{user_id}")
+
+		embed_field_values = []
+		for mapset in stats['top_fav_sets']:
+			favs_count    = int(mapset['favourite_count'])
+			beatmapset_id =     mapset['beatmapset_id']
+			artist        =     mapset['artist']
+			title         =     mapset['title']
+			url           = self.base_url + "/beatmapsets/" + beatmapset_id
+			
+			embed_field_values.append(f":heart: `{favs_count:,}` | [{artist} - {title}]({url})")
+
+		value = "\n".join(embed_field_values)
+		embed.add_field(
+			name="most favourited mapset",
+			value=value,
+			inline=False
+		)
+
+		embed_field_values = []		
+		for mapset in stats['top_play_sets']:
+			play_count    = int(mapset['playcount'])
+			beatmapset_id =     mapset['beatmapset_id']
+			artist        =     mapset['artist']
+			title         =     mapset['title']
+			url           = self.base_url + "/beatmapsets/" + beatmapset_id
+
+			embed_field_values.append(f":arrow_forward: `{play_count:,}` | [{artist} - {title}]({url})")
+
+		value = "\n".join(embed_field_values)
+		embed.add_field(
+			name="most played mapset",
+			value=value,
+			inline=False
+		)
+		
+		embed_field_values = []		
+		for diff in stats['top_play_diffs']:
+			play_count = int(diff['playcount'])
+			beatmap_id =     diff['beatmap_id']
+			artist     =     diff['artist']
+			title      =     diff['title']
+			version    =     diff['version']
+			url        = self.base_url + "/b/" + beatmap_id
+
+			embed_field_values.append(f":arrow_forward: `{play_count:,}` | [{artist} - {title} [{version}]]({url})")
+
+		value = "\n".join(embed_field_values)
+		embed.add_field(
+			name="most played difficulty",
+			value=value,
+			inline=False
+		)
+
+		await ctx.send(embed=embed)
+
 
 	@commands.command( name="onemiss" )
 	async def _get_onemiss( self, ctx ):
@@ -205,7 +284,7 @@ class Osu( commands.Cog ):
 
 		osu_user_id = args[0]
 
-		top_plays = self.get_user_best_info( osu_user_id, osu_user_id )
+		top_plays = self.get_user_best_info( osu_user_id, osu_user_id )[0]
 		onemiss_plays = [play for play in top_plays if play['countmiss'] == '1']
 		onemiss_cnt = len( onemiss_plays )
 
