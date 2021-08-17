@@ -82,7 +82,6 @@ class Osu( commands.Cog ):
 			'm': osu_mode_id,
 			'type': 'string'} ).json()
 
-
 	# Fetch get_user_best from osu! api v1
 	def get_user_best_info( self, osu_user_id, osu_mode_id=0, osu_limit=100 ):
 		return requests.get( self.base_url + "/api/get_user_best", params={
@@ -91,7 +90,6 @@ class Osu( commands.Cog ):
 			'm': osu_mode_id,
 			'limit': osu_limit,
 			'type': 'string'} ).json()
-
 
 	# Fetch get_user_best from osu! api v1
 	def get_beatmap_info( self, since=None, s=None, b=None, u=None, u_type=None, m=None, a=None, h=None, limit=None, mods=None ):
@@ -272,7 +270,6 @@ class Osu( commands.Cog ):
 		)
 
 		await ctx.send(embed=embed)
-
 
 	@commands.command( name="onemiss" )
 	async def _get_onemiss( self, ctx ):
