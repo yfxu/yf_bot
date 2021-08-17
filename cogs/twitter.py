@@ -23,11 +23,12 @@ class Twitter(commands.Cog):
 	def __init__(self, bot):
 		self.bot = bot
 
-	""" tweet generator using unweighted Markov chain """
 	@commands.command( name='tweetgen', hidden=True, description="""Usage: tweetgen [Twitter ID] [N]
 		> [Twitter ID] - Any user's Twitter ID (eg. @realDonaldTrump) case-insensitive
 		> [N] - n-gram size (defaults to 1)""" )
+
 	async def _tweetgen( self, ctx ):
+		""" tweet generator using ngrams with configurable size """
 		args = arg_parse.parse( ctx.message.content )
 		
 		try:
